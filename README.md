@@ -1,5 +1,5 @@
 # dwa_planner
-该仓库代码已经在安装Ubuntu 18.04/ROS Melodic的电脑上测试通过，如果您的系统是Ubuntu 16.04，请切换分支到kinetic-devel再阅读文档说明。
+该仓库代码已经在安装Ubuntu 18.04/ROS Melodic的电脑上测试通过，如果您的系统是Ubuntu 16.04，请切换分支到kinetic-devel再阅读说明文档。
 
 ## 1. 安装依赖
 
@@ -33,29 +33,16 @@ https://github.com/osrf/gazebo_models
 <img src="fig/gazebo.png" width="90%" />
 <img src="fig/gazebo_models.png" width="90%" />
 
-我们采用Pioneer 3-DX作为机器人仿真模型，请按照下面网址的说明安装好p3dx仿真模型的依赖，再下载并编译程序
-```
-$ cd ~/catkin_ws/src/
-$ git clone https://github.com/NKU-MobFly-Robotics/p3dx.git
-$ cd ~/catkin_ws/
-$ catkin_make -DCMAKE_BUILD_TYPE=Release
-```
-
-最后，请从下面网址下载仿真场景模型
-```
-$ cd ~/catkin_ws/src/
-$ git clone https://github.com/NKU-MobFly-Robotics/dwa_planner_simulation.git
-$ cd ~/catkin_ws/
-$ catkin_make -DCMAKE_BUILD_TYPE=Release
-```
+另外，我们采用Pioneer 3-DX作为机器人仿真模型，请按照下面网址的说明安装p3dx仿真模型
+https://github.com/NKU-MobFly-Robotics/p3dx
 
 ## 3. 运行仿真
 打开新的终端，source一下工作路径，并运行launch文件
 ```
 $ source ~/catkin_ws/devel/setup.bash
-$ roslaunch dwa_planner_simulation demo.launch
+$ roslaunch dwa_planner move_base.launch
 ```
 终端会有如下图所示的警告和错误提示，这是正常的，可以忽略
 
 <img src="fig/warn.png" width="100%" />
-在弹出的RViz可视化界面上，点击工具栏的2D Nav Goal并在地图中设置终点，即可运行导航程序
+在弹出的RViz可视化界面里，点击工具栏的2D Nav Goal并在地图中设置终点，即可运行导航程序
