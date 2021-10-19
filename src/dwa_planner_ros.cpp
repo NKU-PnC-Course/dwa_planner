@@ -1,4 +1,3 @@
-#include <opencv2/opencv.hpp>
 #include <chrono>
 #include <pluginlib/class_list_macros.h>
 #include "dwa_planner/dwa_planner_ros.h"
