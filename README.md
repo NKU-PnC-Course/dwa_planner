@@ -1,15 +1,23 @@
 # dwa_planner
-该仓库代码已经在安装Ubuntu 18.04/ROS Melodic的电脑上测试通过，如果您的系统是Ubuntu 16.04，请切换分支到kinetic-devel再阅读说明文档。
+该仓库代码已经在安装Ubuntu 16.04/ROS Kinetic的电脑上测试通过，如果您的系统是Ubuntu 18.04，请切换分支到melodic-devel再阅读说明文档。
 
 ## 1. 安装依赖
 
 ```
-sudo apt install ros-melodic-navigation
+sudo apt install ros-kinetic-navigation
 ```
 我们假设您已经创建了名为catkin_ws的工作空间并完成了初始化，将该仓库克隆到本地
 ```
 $ cd ~/catkin_ws/src/
 $ git clone https://github.com/NKU-MobFly-Robotics/dwa_planner.git
+```
+git clone得到的代码属于默认分支melodic-devel，如果您的系统是Ubuntu 16.04，请用如下命令切换分支
+```
+git checkout kinetic-devel
+```
+您可以使用如下命令查看当前分支状态
+```
+git status
 ```
 完成DWAPlanner类之后，编译程序
 ```
@@ -18,13 +26,7 @@ $ catkin_make -DCMAKE_BUILD_TYPE=Release
 ```
 
 ## 2. 仿真模型配置
-本次作业采用Gazebo来进行仿真测试，采用如下命令查看Gazebo的版本
-```
-gazebo -v
-```
-<img src="fig/gazebo-v.png" width="50%" />
-
-刚装好ROS的机器，第一次运行Gazebo的时候，Gazebo会下载模型，导致打开卡死。为解决该问题，请提前先从下面网址下载好模型文件：
+本次作业采用Gazebo来进行仿真测试，刚装好ROS的机器，第一次运行Gazebo的时候，Gazebo会下载模型，导致打开卡死。为解决该问题，请提前先从下面网址下载好模型文件：
 
 https://github.com/osrf/gazebo_models
 
