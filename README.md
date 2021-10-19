@@ -18,13 +18,7 @@ $ catkin_make -DCMAKE_BUILD_TYPE=Release
 ```
 
 ## 2. 仿真模型配置
-本次作业采用Gazebo来进行仿真测试，采用如下命令查看Gazebo的版本
-```
-gazebo -v
-```
-<img src="fig/gazebo-v.png" width="50%" />
-
-刚装好ROS的机器，第一次运行Gazebo的时候，Gazebo会下载模型，导致打开卡死。为解决该问题，请提前先从下面网址下载好模型文件：
+本次作业采用Gazebo来进行仿真测试，刚装好ROS的机器，第一次运行Gazebo的时候，Gazebo会下载模型，导致打开卡死。为解决该问题，请提前先从下面网址下载好模型文件：
 
 https://github.com/osrf/gazebo_models
 
