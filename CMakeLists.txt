@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(dwa_planner)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -15,7 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   pluginlib
   roscpp
   tf
-  tf2
 )
 
 # Eigen3
@@ -32,7 +31,6 @@ catkin_package(
     pluginlib 
     roscpp 
     tf 
-    tf2
 )
 
 include_directories(

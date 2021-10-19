@@ -1,4 +1,3 @@
-#include <opencv2/opencv.hpp>
 #include <chrono>
 #include <pluginlib/class_list_macros.h>
 #include "dwa_planner/dwa_planner_ros.h"
@@ -47,7 +46,7 @@ void DWAPlannerROS::allocateMemory()
     charmap_[i] = new unsigned char[size_y_];
 }
 
-void DWAPlannerROS::initialize(std::string name, tf2_ros::Buffer* tf, costmap_2d::Costmap2DROS* costmap_ros)
+void DWAPlannerROS::initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros)
 {
   // check if the plugin is already initialized
   if (!initialized_)
@@ -122,30 +121,30 @@ bool DWAPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   }
 
   // Get current robot pose
-  geometry_msgs::PoseStamped robot_pose_stamped;
-  costmap_ros_->getRobotPose(robot_pose_stamped);
+  tf::Stamped<tf::Pose> robot_pose_tf;
+  costmap_ros_->getRobotPose(robot_pose_tf);
   Pose2D robot_pose;
-  robot_pose.x = robot_pose_stamped.pose.position.x;
-  robot_pose.y = robot_pose_stamped.pose.position.y;
-  robot_pose.theta = tf2::getYaw(robot_pose_stamped.pose.orientation);
+  robot_pose.x = robot_pose_tf.getOrigin().getX();
+  robot_pose.y = robot_pose_tf.getOrigin().getY();
+  robot_pose.theta = tf::getYaw(robot_pose_tf.getRotation());
 
   // Get current robot velocity
-  geometry_msgs::PoseStamped robot_vel_tf;
+  tf::Stamped<tf::Pose> robot_vel_tf;
   odom_helper_.getRobotVel(robot_vel_tf);
   Velocity robot_vel;
-  robot_vel.v = robot_vel_tf.pose.position.x;
-  robot_vel.omega = tf2::getYaw(robot_vel_tf.pose.orientation);
+  robot_vel.v = robot_vel_tf.getOrigin().getX();
+  robot_vel.omega = tf::getYaw(robot_vel_tf.getRotation());
 
   // prune global plan to cut off parts of the past (spatially before the robot)
-  pruneGlobalPlan(*tf_, robot_pose_stamped, global_plan_);
+  pruneGlobalPlan(*tf_, robot_pose_tf, global_plan_);
 
   // Transform global plan to the frame of interest (w.r.t. the local costmap)
   std::vector<geometry_msgs::PoseStamped> transformed_plan;
   int goal_idx;
-  geometry_msgs::TransformStamped tf_plan_to_global;
+  tf::StampedTransform tf_plan_to_global;
   double max_global_plan_lookahead_dist = 3.0;
-  if (!transformGlobalPlan(*tf_, global_plan_, robot_pose_stamped, *costmap_, global_frame_,
-                           max_global_plan_lookahead_dist, transformed_plan, &goal_idx, &tf_plan_to_global))
+  if (!transformGlobalPlan(*tf_, global_plan_, robot_pose_tf, *costmap_, global_frame_, max_global_plan_lookahead_dist,
+                           transformed_plan, &goal_idx, &tf_plan_to_global))
   {
     ROS_WARN("Could not transform the global plan to the frame of the controller");
     return false;
@@ -180,7 +179,7 @@ bool DWAPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   {
     double x = transformed_plan[i].pose.position.x;
     double y = transformed_plan[i].pose.position.y;
-    double theta = tf2::getYaw(transformed_plan[i].pose.orientation);
+    double theta = tf::getYaw(transformed_plan[i].pose.orientation);
     reference_path.push_back(Pose2D(x, y, theta));
   }
   publishGlobalPlan(transformed_plan);
@@ -213,11 +212,11 @@ bool DWAPlannerROS::isGoalReached()
   }
 
   // Get current robot pose
-  geometry_msgs::PoseStamped robot_pose;
-  costmap_ros_->getRobotPose(robot_pose);
+  tf::Stamped<tf::Pose> robot_pose_tf;
+  costmap_ros_->getRobotPose(robot_pose_tf);
 
-  double dx = robot_pose.pose.position.x - global_goal_.pose.position.x;
-  double dy = robot_pose.pose.position.y - global_goal_.pose.position.y;
+  double dx = robot_pose_tf.getOrigin().getX() - global_goal_.pose.position.x;
+  double dy = robot_pose_tf.getOrigin().getY() - global_goal_.pose.position.y;
   if (hypot(dx, dy) < cfg_.xy_goal_tolerance)
   {
     ROS_INFO("GOAL Reached!");
@@ -227,7 +226,7 @@ bool DWAPlannerROS::isGoalReached()
     return false;
 }
 
-bool DWAPlannerROS::pruneGlobalPlan(const tf2_ros::Buffer& tf, const geometry_msgs::PoseStamped& global_pose,
+bool DWAPlannerROS::pruneGlobalPlan(const tf::TransformListener& tf, const tf::Stamped<tf::Pose>& global_pose,
                                     std::vector<geometry_msgs::PoseStamped>& global_plan, double dist_behind_robot)
 {
   if (global_plan.empty())
@@ -236,10 +235,11 @@ bool DWAPlannerROS::pruneGlobalPlan(const tf2_ros::Buffer& tf, const geometry_ms
   try
   {
     // transform robot pose into the plan frame (we do not wait here, since pruning not crucial, if missed a few times)
-    geometry_msgs::TransformStamped global_to_plan_transform =
-        tf.lookupTransform(global_plan.front().header.frame_id, global_pose.header.frame_id, ros::Time(0));
-    geometry_msgs::PoseStamped robot;
-    tf2::doTransform(global_pose, robot, global_to_plan_transform);
+    tf::StampedTransform global_to_plan_transform;
+    tf.lookupTransform(global_plan.front().header.frame_id, global_pose.frame_id_, ros::Time(0),
+                       global_to_plan_transform);
+    tf::Stamped<tf::Pose> robot;
+    robot.setData(global_to_plan_transform * global_pose);
 
     double dist_thresh_sq = dist_behind_robot * dist_behind_robot;
 
@@ -248,8 +248,8 @@ bool DWAPlannerROS::pruneGlobalPlan(const tf2_ros::Buffer& tf, const geometry_ms
     std::vector<geometry_msgs::PoseStamped>::iterator erase_end = it;
     while (it != global_plan.end())
     {
-      double dx = robot.pose.position.x - it->pose.position.x;
-      double dy = robot.pose.position.y - it->pose.position.y;
+      double dx = robot.getOrigin().x() - it->pose.position.x;
+      double dy = robot.getOrigin().y() - it->pose.position.y;
       double dist_sq = dx * dx + dy * dy;
       if (dist_sq < dist_thresh_sq)
       {
@@ -272,13 +272,12 @@ bool DWAPlannerROS::pruneGlobalPlan(const tf2_ros::Buffer& tf, const geometry_ms
   return true;
 }
 
-bool DWAPlannerROS::transformGlobalPlan(const tf2_ros::Buffer& tf,
+bool DWAPlannerROS::transformGlobalPlan(const tf::TransformListener& tf,
                                         const std::vector<geometry_msgs::PoseStamped>& global_plan,
-                                        const geometry_msgs::PoseStamped& global_pose,
-                                        const costmap_2d::Costmap2D& costmap, const std::string& global_frame,
-                                        double max_plan_length,
+                                        const tf::Stamped<tf::Pose>& global_pose, const costmap_2d::Costmap2D& costmap,
+                                        const std::string& global_frame, double max_plan_length,
                                         std::vector<geometry_msgs::PoseStamped>& transformed_plan,
-                                        int* current_goal_idx, geometry_msgs::TransformStamped* tf_plan_to_global) const
+                                        int* current_goal_idx, tf::StampedTransform* tf_plan_to_global) const
 {
   // this method is a slightly modified version of base_local_planner/goal_functions.h
 
@@ -296,13 +295,15 @@ bool DWAPlannerROS::transformGlobalPlan(const tf2_ros::Buffer& tf,
     }
 
     // get plan_to_global_transform from plan frame to global_frame
-    geometry_msgs::TransformStamped plan_to_global_transform =
-        tf.lookupTransform(global_frame, ros::Time(), plan_pose.header.frame_id, plan_pose.header.stamp,
-                           plan_pose.header.frame_id, ros::Duration(cfg_.transform_tolerance));
+    tf::StampedTransform plan_to_global_transform;
+    tf.waitForTransform(global_frame, ros::Time::now(), plan_pose.header.frame_id, plan_pose.header.stamp,
+                        plan_pose.header.frame_id, ros::Duration(0.5));
+    tf.lookupTransform(global_frame, ros::Time(), plan_pose.header.frame_id, plan_pose.header.stamp,
+                       plan_pose.header.frame_id, plan_to_global_transform);
 
     // let's get the pose of the robot in the frame of the plan
-    geometry_msgs::PoseStamped robot_pose;
-    tf.transform(global_pose, robot_pose, plan_pose.header.frame_id);
+    tf::Stamped<tf::Pose> robot_pose;
+    tf.transformPose(plan_pose.header.frame_id, global_pose, robot_pose);
 
     // we'll discard points on the plan that are outside the local costmap
     double dist_threshold = std::max(costmap.getSizeInCellsX() * costmap.getResolution() / 2.0,
@@ -318,8 +319,8 @@ bool DWAPlannerROS::transformGlobalPlan(const tf2_ros::Buffer& tf,
     bool robot_reached = false;
     for (int j = 0; j < (int)global_plan.size(); ++j)
     {
-      double x_diff = robot_pose.pose.position.x - global_plan[j].pose.position.x;
-      double y_diff = robot_pose.pose.position.y - global_plan[j].pose.position.y;
+      double x_diff = robot_pose.getOrigin().x() - global_plan[j].pose.position.x;
+      double y_diff = robot_pose.getOrigin().y() - global_plan[j].pose.position.y;
       double new_sq_dist = x_diff * x_diff + y_diff * y_diff;
       if (new_sq_dist > sq_dist_threshold)
         break;  // force stop if we have reached the costmap border
@@ -336,6 +337,7 @@ bool DWAPlannerROS::transformGlobalPlan(const tf2_ros::Buffer& tf,
       }
     }
 
+    tf::Stamped<tf::Pose> tf_pose;
     geometry_msgs::PoseStamped newer_pose;
 
     double plan_length = 0;  // check cumulative Euclidean distance along the plan
@@ -345,12 +347,16 @@ bool DWAPlannerROS::transformGlobalPlan(const tf2_ros::Buffer& tf,
            (max_plan_length <= 0 || plan_length <= max_plan_length))
     {
       const geometry_msgs::PoseStamped& pose = global_plan[i];
-      tf2::doTransform(pose, newer_pose, plan_to_global_transform);
+      tf::poseStampedMsgToTF(pose, tf_pose);
+      tf_pose.setData(plan_to_global_transform * tf_pose);
+      tf_pose.stamp_ = plan_to_global_transform.stamp_;
+      tf_pose.frame_id_ = global_frame;
+      tf::poseStampedTFToMsg(tf_pose, newer_pose);
 
       transformed_plan.push_back(newer_pose);
 
-      double x_diff = robot_pose.pose.position.x - global_plan[i].pose.position.x;
-      double y_diff = robot_pose.pose.position.y - global_plan[i].pose.position.y;
+      double x_diff = robot_pose.getOrigin().x() - global_plan[i].pose.position.x;
+      double y_diff = robot_pose.getOrigin().y() - global_plan[i].pose.position.y;
       sq_dist = x_diff * x_diff + y_diff * y_diff;
 
       // caclulate distance to previous pose
@@ -368,7 +374,11 @@ bool DWAPlannerROS::transformGlobalPlan(const tf2_ros::Buffer& tf,
     // >>0) the resulting transformed plan can be empty. In that case we explicitly inject the global goal.
     if (transformed_plan.empty())
     {
-      tf2::doTransform(global_plan.back(), newer_pose, plan_to_global_transform);
+      tf::poseStampedMsgToTF(global_plan.back(), tf_pose);
+      tf_pose.setData(plan_to_global_transform * tf_pose);
+      tf_pose.stamp_ = plan_to_global_transform.stamp_;
+      tf_pose.frame_id_ = global_frame;
+      tf::poseStampedTFToMsg(tf_pose, newer_pose);
 
       transformed_plan.push_back(newer_pose);
 

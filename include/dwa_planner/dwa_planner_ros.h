@@ -6,11 +6,12 @@
 // base local planner base class and utilities
 #include <nav_core/base_local_planner.h>
 #include <base_local_planner/odometry_helper_ros.h>
+#include <base_local_planner/costmap_model.h>
 #include <geometry_msgs/PoseStamped.h>
 
 // transforms
-#include <tf2/utils.h>
-#include <tf2_ros/buffer.h>
+#include <tf/tf.h>
+#include <tf/transform_listener.h>
 
 #include "dwa_planner/utils.h"
 #include "dwa_planner/dwa_planner.h"
@@ -36,7 +37,7 @@ public:
    * @param tf Pointer to a tf buffer
    * @param costmap_ros Cost map representing occupied and free space
    */
-  void initialize(std::string name, tf2_ros::Buffer* tf, costmap_2d::Costmap2DROS* costmap_ros);
+  void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros);
 
   /**
    * @brief Set the plan that the dwa local planner is following
@@ -77,14 +78,14 @@ private:
    * nothing will be pruned and the method returns \c false.
    * @remarks Do not choose \c dist_behind_robot too small (not smaller the cellsize of the map), otherwise nothing will
    * be pruned.
-   * @param tf A reference to a tf buffer
+   * @param tf A reference to a transform listener
    * @param global_pose The global pose of the robot
    * @param[in,out] global_plan The plan to be transformed
    * @param dist_behind_robot Distance behind the robot that should be kept [meters]
    * @return \c true if the plan is pruned, \c false in case of a transform exception or if no pose cannot be found
    * inside the threshold
    */
-  bool pruneGlobalPlan(const tf2_ros::Buffer& tf, const geometry_msgs::PoseStamped& global_pose,
+  bool pruneGlobalPlan(const tf::TransformListener& tf, const tf::Stamped<tf::Pose>& global_pose,
                        std::vector<geometry_msgs::PoseStamped>& global_plan, double dist_behind_robot = 1);
 
   /**
@@ -93,7 +94,7 @@ private:
    * The method replaces transformGlobalPlan as defined in base_local_planner/goal_functions.h
    * such that the index of the current goal pose is returned as well as
    * the transformation between the global plan and the planning frame.
-   * @param tf A reference to a tf buffer
+   * @param tf A reference to a transform listener
    * @param global_plan The plan to be transformed
    * @param global_pose The global pose of the robot
    * @param costmap A reference to the costmap being used so the window size for transforming can be computed
@@ -105,17 +106,17 @@ private:
    * @param[out] tf_plan_to_global Transformation between the global plan and the global planning frame
    * @return \c true if the global plan is transformed, \c false otherwise
    */
-  bool transformGlobalPlan(const tf2_ros::Buffer& tf, const std::vector<geometry_msgs::PoseStamped>& global_plan,
-                           const geometry_msgs::PoseStamped& global_pose, const costmap_2d::Costmap2D& costmap,
+  bool transformGlobalPlan(const tf::TransformListener& tf, const std::vector<geometry_msgs::PoseStamped>& global_plan,
+                           const tf::Stamped<tf::Pose>& global_pose, const costmap_2d::Costmap2D& costmap,
                            const std::string& global_frame, double max_plan_length,
                            std::vector<geometry_msgs::PoseStamped>& transformed_plan, int* current_goal_idx = NULL,
-                           geometry_msgs::TransformStamped* tf_plan_to_global = NULL) const;
+                           tf::StampedTransform* tf_plan_to_global = NULL) const;
 
 private:
   // external objects (store weak pointers)
   costmap_2d::Costmap2DROS* costmap_ros_;  //!< Pointer to the costmap ros wrapper, received from the navigation stack
   costmap_2d::Costmap2D* costmap_;         //!< Pointer to the 2d costmap (obtained from the costmap ros wrapper)
-  tf2_ros::Buffer* tf_;                    //!< pointer to tf buffer
+  tf::TransformListener* tf_;              //!< pointer to Transform Listener
 
   std::vector<geometry_msgs::PoseStamped> global_plan_;  //!< Store the current global plan
 
