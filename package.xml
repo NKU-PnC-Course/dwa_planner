@@ -38,7 +38,7 @@
   <exec_depend>tf2</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
-  <export>
+<!--   <export>
     <nav_core plugin="${prefix}/blp_plugin.xml" />
-  </export>
+  </export> -->
 </package>
