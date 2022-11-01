@@ -3,7 +3,7 @@
 #include "dwa_planner/dwa_planner_ros.h"
 
 // register this planner as a BaseLocalPlanner plugin
-PLUGINLIB_EXPORT_CLASS(dwa_planner::DWAPlannerROS, nav_core::BaseLocalPlanner)
+// PLUGINLIB_EXPORT_CLASS(dwa_planner::DWAPlannerROS, nav_core::BaseLocalPlanner)
 
 namespace dwa_planner
 {
